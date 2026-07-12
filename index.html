@@ -1445,38 +1445,32 @@
             autoSave();
         }
 
-        async function initializeApp() {
-            const configuredPath = getConfiguredDataPath();
-            if (configuredPath) {
-                const loadedFromPath = await loadTreeFromPath(configuredPath);
-                if (loadedFromPath) {
-                    render();
-                    updateTransform();
-                    applyModeUI();
-                    centerCanvasOnPeople();
-                    console.log('✅ Древо загружено из JSON:', configuredPath);
-                    return;
-                }
-            }
-
-            const isNewData = !loadData();
-            if (isNewData) initDemoData();
-            updateStyleButtons();
-            applyModeUI();
+       async function initializeApp() {
+    // 1. Определяем путь к JSON
+    const configuredPath = getConfiguredDataPath();
+    
+    // 2. Если путь есть - загружаем из JSON
+    if (configuredPath) {
+        const loadedFromPath = await loadTreeFromPath(configuredPath);
+        if (loadedFromPath) {
             render();
             updateTransform();
-            if (people.length === 0) {
-                setTimeout(() => {
-                    autoArrange();
-                    centerCanvasOnPeople();
-                }, 300);
-            } else {
-                centerCanvasOnPeople();
-            }
-            console.log('✅ Древо загружено!');
+            applyModeUI();
+            centerCanvasOnPeople();
+            console.log('✅ Древо загружено из JSON:', configuredPath);
+            return;
         }
-
-        initializeApp();
+    }
+    
+    // 3. Если JSON не загрузился - показываем демо-данные
+    console.log('ℹ️ JSON не найден, загружаем демо-данные');
+    initDemoData();
+    updateStyleButtons();
+    applyModeUI();
+    render();
+    updateTransform();
+    centerCanvasOnPeople();
+}
 
         // ================================================================
         //  АВТОМАТИЧЕСКОЕ ВЫРАВНИВАНИЕ
