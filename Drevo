@@ -1,0 +1,2605 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Генеалогическое древо — конструктор</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            color: #e0e0e0;
+        }
+
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #16213e;
+            position: relative;
+            min-width: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 8px 14px;
+            background: #0f3460;
+            border-bottom: 2px solid #1a4a7a;
+            align-items: center;
+            flex-shrink: 0;
+            min-height: 50px;
+            z-index: 10;
+        }
+
+        .toolbar .brand {
+            font-size: 16px;
+            font-weight: 600;
+            margin-right: 12px;
+            color: #e94560;
+            letter-spacing: 0.5px;
+        }
+
+        .toolbar .brand span {
+            color: #fff;
+        }
+
+        .toolbar button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+
+        .toolbar button:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        .toolbar button.primary {
+            background: #e94560;
+            border-color: #e94560;
+        }
+
+        .toolbar button.primary:hover {
+            background: #ff6b81;
+        }
+
+        .toolbar button.danger {
+            background: #c0392b;
+            border-color: #c0392b;
+        }
+
+        .toolbar button.danger:hover {
+            background: #e74c3c;
+        }
+
+        .toolbar button.success {
+            background: #27ae60;
+            border-color: #27ae60;
+        }
+
+        .toolbar button.success:hover {
+            background: #2ecc71;
+        }
+
+        .toolbar button.link-active {
+            background: #e94560;
+            border-color: #e94560;
+            animation: pulse-btn 1s ease-in-out infinite;
+        }
+
+        .toolbar button.active-style {
+            background: #f39c12;
+            border-color: #f39c12;
+        }
+
+        .toolbar button.active-grid {
+            background: #27ae60;
+            border-color: #27ae60;
+        }
+
+        @keyframes pulse-btn {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(233, 69, 96, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 20px 5px rgba(233, 69, 96, 0.3);
+            }
+        }
+
+        .toolbar .sep {
+            width: 1px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0 4px;
+        }
+
+        .toolbar .zoom-info {
+            font-size: 11px;
+            color: #8899bb;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .toolbar .save-status {
+            font-size: 11px;
+            color: #27ae60;
+            margin-left: 6px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .toolbar .save-status.show {
+            opacity: 1;
+        }
+
+        .toolbar .json-path {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 4px;
+        }
+
+        .toolbar .json-path input {
+            min-width: 220px;
+            padding: 5px 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 12px;
+        }
+
+        .toolbar .json-path input::placeholder {
+            color: #7b90ab;
+        }
+
+        .toolbar .style-label {
+            font-size: 10px;
+            color: #6688aa;
+            margin: 0 4px;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            background: #efe3ce;
+            cursor: grab;
+        }
+
+        .canvas-wrapper:active {
+            cursor: grabbing;
+        }
+
+        .canvas-wrapper.link-mode {
+            cursor: crosshair;
+        }
+
+        #genealogySvg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            transform-origin: 0 0;
+            overflow: visible;
+        }
+
+        .card-group {
+            cursor: pointer;
+        }
+
+        .card-group:hover .card-rect {
+            filter: brightness(1.15);
+        }
+
+        .card-group.selected .card-rect {
+            filter: drop-shadow(0 0 12px rgba(233, 69, 96, 0.35));
+        }
+
+        .card-group.link-first .card-rect {
+            filter: drop-shadow(0 0 16px rgba(241, 196, 15, 0.35));
+        }
+
+        .card-rect {
+            transition: filter 0.15s, stroke-width 0.15s;
+        }
+
+        .card-label {
+            pointer-events: none;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 12px;
+            font-weight: 600;
+            fill: #1f1f1f;
+        }
+
+        .card-sub {
+            pointer-events: none;
+            font-family: Georgia, 'Times New Roman', serif;
+            font-size: 9px;
+            fill: rgba(0, 0, 0, 0.6);
+        }
+
+        .children-card .child-item {
+            font-size: 10px;
+            fill: rgba(0, 0, 0, 0.75);
+        }
+
+        .children-card .card-title {
+            font-size: 10px;
+            fill: rgba(0, 0, 0, 0.55);
+        }
+
+        .marriage-ring {
+            cursor: pointer;
+            transition: stroke-width 0.2s, r 0.2s;
+        }
+
+        .marriage-ring:hover {
+            stroke-width: 4px !important;
+            r: 18 !important;
+        }
+
+        .marriage-ring.highlight {
+            stroke: #f1c40f !important;
+            stroke-width: 5px !important;
+            r: 20 !important;
+            filter: drop-shadow(0 0 16px rgba(241, 196, 15, 0.6));
+        }
+
+        .relation-line {
+            stroke-linecap: round;
+            cursor: pointer;
+            transition: stroke-width 0.2s;
+        }
+
+        .relation-line:hover {
+            stroke-width: 3px !important;
+        }
+
+        .child-line {
+            stroke-dasharray: 8, 5;
+            stroke-linecap: round;
+            cursor: pointer;
+            transition: stroke-width 0.2s;
+        }
+
+        .child-line:hover {
+            stroke-width: 3px !important;
+        }
+
+        .corner-line {
+            fill: none;
+            stroke-linejoin: round;
+            cursor: pointer;
+            transition: stroke-width 0.2s;
+        }
+
+        .corner-line:hover {
+            stroke-width: 3px !important;
+        }
+
+        /* Стиль для карточки-списка потомков */
+        .children-card .card-rect {
+            stroke-dasharray: 4, 4;
+            stroke-width: 2px;
+        }
+
+        .children-card .card-rect:hover {
+            stroke-width: 3px;
+        }
+
+        .children-card .child-item {
+            font-size: 8px;
+            fill: rgba(0, 0, 0, 0.75);
+            pointer-events: none;
+        }
+
+        .children-card .child-item .child-name {
+            font-weight: 600;
+        }
+
+        .children-card .child-item .child-dates {
+            fill: rgba(0, 0, 0, 0.55);
+        }
+
+        .children-card .card-title {
+            font-size: 8px;
+            font-weight: 700;
+            fill: rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .branch-label .card-rect {
+            stroke-width: 1.5;
+            stroke-dasharray: 4, 4;
+        }
+
+        .branch-label .card-label {
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .info-panel {
+            width: 0;
+            background: #0f3460;
+            border-left: 2px solid #1a4a7a;
+            overflow: hidden;
+            transition: width 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            height: 100vh;
+            z-index: 15;
+        }
+
+        .info-panel.open {
+            width: 380px;
+        }
+
+        .info-panel.read-only-mode {
+            background: #ffffff;
+            border-left: 2px solid #e5e1d8;
+            box-shadow: -8px 0 24px rgba(0, 0, 0, 0.06);
+        }
+
+        .info-panel.read-only-mode .info-panel-header {
+            background: #ffffff;
+            border-bottom: 1px solid #ece7db;
+        }
+
+        .info-panel.read-only-mode .info-panel-header h2 {
+            color: #2f2f2f;
+        }
+
+        .info-panel.read-only-mode .info-panel-header .close-btn {
+            color: #7a7a7a;
+        }
+
+        .info-panel.read-only-mode .info-panel-body {
+            padding: 18px;
+            background: #ffffff;
+        }
+
+        .info-panel.read-only-mode .read-only-info {
+            display: block;
+        }
+
+        .read-only-info {
+            display: none;
+        }
+
+        .read-only-card {
+            background: #ffffff;
+            padding: 18px;
+        }
+
+        .read-only-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #2f2f2f;
+            margin-bottom: 14px;
+            letter-spacing: 0.2px;
+        }
+
+        .read-only-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .read-only-item {
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f2eee6;
+        }
+
+        .read-only-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .read-only-label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #8f8b82;
+            margin-bottom: 4px;
+        }
+
+        .read-only-value {
+            font-size: 14px;
+            color: #1f1f1f;
+            line-height: 1.45;
+            white-space: pre-wrap;
+        }
+
+        .info-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #1a4a7a;
+            flex-shrink: 0;
+        }
+
+        .info-panel-header h2 {
+            font-size: 15px;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .info-panel-header .close-btn {
+            background: none;
+            border: none;
+            color: #8899bb;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 6px;
+            transition: 0.2s;
+        }
+
+        .info-panel-header .close-btn:hover {
+            color: #fff;
+        }
+
+        .info-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+        }
+
+        .info-panel-body::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .info-panel-body::-webkit-scrollbar-thumb {
+            background: #2a4a7a;
+            border-radius: 4px;
+        }
+
+        .info-panel-body .field {
+            margin-bottom: 12px;
+        }
+
+        .info-panel-body .field label {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6688aa;
+            margin-bottom: 2px;
+        }
+
+        .info-panel-body .field input,
+        .info-panel-body .field textarea,
+        .info-panel-body .field select {
+            width: 100%;
+            padding: 6px 10px;
+            background: #0d1b2a;
+            border: 1px solid #1a4a7a;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            transition: border 0.2s;
+            font-family: inherit;
+        }
+
+        .color-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-row input[type="color"] {
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 8px;
+            border: 1px solid #1a4a7a;
+            cursor: pointer;
+        }
+
+        .color-row input[type="text"] {
+            width: 100%;
+            max-width: 150px;
+            padding: 8px 10px;
+            background: #11213a;
+            border: 1px solid #1a4a7a;
+            border-radius: 8px;
+            color: #fff;
+            letter-spacing: 0.04em;
+        }
+
+        .color-row input[type="text"]:focus {
+            border-color: #e94560;
+        }
+
+        .color-palette {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .color-swatch {
+            width: 30px;
+            height: 30px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .color-swatch:hover,
+        .color-swatch:focus {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 4px rgba(233, 69, 96, 0.12);
+            outline: none;
+        }
+
+        .info-panel-body .field input:focus,
+        .info-panel-body .field textarea:focus,
+        .info-panel-body .field select:focus {
+            border-color: #e94560;
+        }
+
+        .info-panel-body .field textarea {
+            resize: vertical;
+            min-height: 50px;
+        }
+
+        .info-panel-body .field input[type="color"] {
+            width: 50px;
+            height: 36px;
+            padding: 2px;
+            cursor: pointer;
+        }
+
+        .info-panel-body .field .color-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .info-panel-body .field .color-row span {
+            font-size: 13px;
+            color: #99aabb;
+        }
+
+        .info-panel-body .field select {
+            appearance: auto;
+        }
+
+        .info-panel-body .field .relations-list {
+            margin-top: 4px;
+        }
+
+        .info-panel-body .field .rel-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 12px;
+            color: #c0c0d0;
+        }
+
+        .info-panel-body .field .rel-item .rel-type {
+            color: #6688aa;
+            font-size: 10px;
+            min-width: 50px;
+        }
+
+        .info-panel-body .field .rel-item .rel-delete {
+            background: none;
+            border: none;
+            color: #c0392b;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: auto;
+        }
+
+        .info-panel-body .field .rel-item .rel-delete:hover {
+            color: #e74c3c;
+        }
+
+        .info-panel-body .field .rel-item .rel-parent-badge {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0 8px;
+            border-radius: 3px;
+            font-size: 9px;
+            color: #8899bb;
+        }
+
+        .info-panel-body .field .rel-item .rel-style {
+            font-size: 9px;
+            color: #6688aa;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0 6px;
+            border-radius: 3px;
+        }
+
+        .info-panel-body .save-btn {
+            width: 100%;
+            padding: 8px;
+            background: #27ae60;
+            border: none;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 8px;
+        }
+
+        .info-panel-body .save-btn:hover {
+            background: #2ecc71;
+        }
+
+        .link-hint {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(233, 69, 96, 0.95);
+            color: #fff;
+            padding: 12px 28px;
+            border-radius: 30px;
+            font-size: 15px;
+            font-weight: 600;
+            z-index: 50;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.6);
+            pointer-events: none;
+            animation: pulse 1.5s ease-in-out infinite;
+            display: none;
+            text-align: center;
+        }
+
+        .link-hint .cancel-hint {
+            font-size: 12px;
+            opacity: 0.7;
+            display: block;
+            margin-top: 4px;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1);
+            }
+
+            50% {
+                opacity: 0.85;
+                transform: translateX(-50%) scale(0.98);
+            }
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: #16213e;
+            border: 1px solid #1a4a7a;
+            border-radius: 14px;
+            max-width: 580px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+        }
+
+        .modal::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .modal::-webkit-scrollbar-thumb {
+            background: #2a4a7a;
+            border-radius: 4px;
+        }
+
+        .modal h2 {
+            color: #e94560;
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .modal .subtitle {
+            color: #6688aa;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .modal .step {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            border-left: 3px solid #e94560;
+        }
+
+        .modal .step .num {
+            font-size: 18px;
+            font-weight: 700;
+            color: #e94560;
+            min-width: 26px;
+        }
+
+        .modal .step .text {
+            font-size: 13px;
+            color: #c0c0d0;
+            line-height: 1.5;
+        }
+
+        .modal .step .text strong {
+            color: #fff;
+        }
+
+        .modal .close-modal {
+            margin-top: 16px;
+            padding: 10px;
+            background: #e94560;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+        }
+
+        .modal .close-modal:hover {
+            background: #ff6b81;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                height: 100dvh;
+                overflow: hidden;
+            }
+
+            .main-area {
+                min-height: 0;
+            }
+
+            .toolbar {
+                padding: 8px 10px;
+                gap: 6px;
+                max-height: 40vh;
+                overflow-y: auto;
+                align-items: flex-start;
+            }
+
+            .toolbar .brand {
+                font-size: 13px;
+                margin-right: 6px;
+            }
+
+            .toolbar button {
+                font-size: 10px;
+                padding: 6px 8px;
+                min-height: 36px;
+            }
+
+            .toolbar .sep {
+                display: none;
+            }
+
+            .toolbar .style-label {
+                display: none;
+            }
+
+            .toolbar .zoom-info {
+                min-width: auto;
+                margin-left: auto;
+            }
+
+            .canvas-wrapper {
+                touch-action: none;
+            }
+
+            .info-panel.open {
+                width: 100%;
+                position: absolute;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                z-index: 20;
+                border-left: none;
+            }
+
+            .info-panel.read-only-mode .read-only-card {
+                padding: 16px;
+                border-radius: 12px;
+            }
+
+            .info-panel-body {
+                padding: 12px;
+            }
+
+            .info-panel-body .field input,
+            .info-panel-body .field textarea,
+            .info-panel-body .field select {
+                font-size: 14px;
+                padding: 10px 12px;
+            }
+
+            .modal {
+                padding: 16px;
+                margin: 10px;
+            }
+
+            .link-hint {
+                font-size: 12px;
+                padding: 10px 18px;
+                bottom: 15px;
+                width: 92%;
+                max-width: 360px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="main-area">
+        <div class="toolbar">
+            <div class="brand">🧬 <span>Древо</span></div>
+            <button class="primary" onclick="startCreateCard('person')">➕ Человек</button>
+            <button class="success" onclick="startCreateCard('children')">👨‍👩‍👧‍👦 Список детей</button>
+            <button class="danger" onclick="deleteSelected()">🗑 Удалить</button>
+            <button class="danger" onclick="clearTree()">🧹 Очистить</button>
+            <span class="sep"></span>
+            <button onclick="addBranch()">🌿 Ветвь</button>
+            <button onclick="startCreateCard('branchLabel')">🏷 Подпись ветви</button>
+            <span class="sep"></span>
+            <button id="linkLineBtn" onclick="startLinkMode('line')">🔗 Связать</button>
+            <button id="linkMarriageBtn" onclick="startLinkMode('marriage')">💍 Брак</button>
+            <button id="linkChildBtn" onclick="startLinkMode('child')">👶 Ребёнок</button>
+            <button onclick="cancelLinkMode()">✖ Отмена</button>
+            <span class="sep"></span>
+            <span class="style-label">Стиль линии:</span>
+            <button id="styleStraight" class="active-style" onclick="setLineStyle('straight')">╱ Прямая</button>
+            <button id="styleCorner" onclick="setLineStyle('corner')">┐ Угловая</button>
+            <span class="sep"></span>
+            <button onclick="zoomIn()">➕</button>
+            <button onclick="zoomOut()">➖</button>
+            <button onclick="resetView()">⟲</button>
+            <span class="zoom-info" id="zoomInfo">100%</span>
+            <span class="sep"></span>
+            <div class="json-path">
+                <input id="jsonPathInput" type="text" value="" placeholder="Путь к JSON, например: /static/tree.json" />
+                <button onclick="loadTreeFromPath()">📦 Загрузить</button>
+            </div>
+            <span class="sep"></span>
+            <button onclick="exportData()">💾 Экспорт</button>
+            <button onclick="document.getElementById('importFile').click()">📂 Импорт</button>
+            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)" />
+            <span class="sep"></span>
+            <button onclick="autoArrange()">📐 Выровнять</button>
+            <button id="helpBtn" onclick="showHelp()">❓</button>
+            <span class="save-status" id="saveStatus">✓ Сохранено</span>
+        </div>
+
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <svg id="genealogySvg" viewBox="0 0 20000 20000" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+    </div>
+
+    <div class="info-panel" id="infoPanel">
+        <div class="info-panel-header">
+            <h2>Редактирование</h2>
+            <button class="close-btn" onclick="closePanel()">✕</button>
+        </div>
+        <div class="info-panel-body" id="panelBody">
+            <div id="readOnlyInfo" class="read-only-info">
+                <div class="read-only-card">
+                    <div class="read-only-title"></div>
+                    <div class="read-only-stack">
+                        <div class="read-only-item">
+                            <span class="read-only-label">Имя</span>
+                            <div class="read-only-value" id="roName">—</div>
+                        </div>
+                        <div class="read-only-item">
+                            <span class="read-only-label">Ветвь</span>
+                            <div class="read-only-value" id="roBranch">—</div>
+                        </div>
+                        <div class="read-only-item">
+                            <span class="read-only-label">Годы жизни</span>
+                            <div class="read-only-value" id="roDates">—</div>
+                        </div>
+                        <div class="read-only-item">
+                            <span class="read-only-label">Биография</span>
+                            <div class="read-only-value" id="roBiography">—</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="editPanelForm">
+                <div class="field">
+                    <label>📛 Имя / Заголовок</label>
+                    <input type="text" id="editName" placeholder="Например: Дети Достоевских" />
+                </div>
+                <div class="field" id="fullNameField">
+                    <label>📝 Полное имя</label>
+                    <input type="text" id="editFullName" placeholder="Например: Фёдор Михайлович Достоевский" />
+                </div>
+                <div class="field" id="datesField">
+                    <label>📅 Годы жизни</label>
+                    <input type="text" id="editDates" placeholder="Например: 1821–1881" />
+                </div>
+                <div class="field">
+                    <label>📌 Ветвь / Группа</label>
+                    <input type="text" id="editGroup" placeholder="Например: Писатели" />
+                </div>
+                <div class="field" id="notesField">
+                    <label>📝 Примечания</label>
+                    <textarea id="editNotes" rows="3" placeholder="Дополнительная информация..."></textarea>
+                </div>
+                <div class="field">
+                    <label>🎨 Цвет карточки</label>
+                    <div class="color-row">
+                        <input type="color" id="editColor" />
+                        <input type="text" id="editColorHex" value="#4a7a9a" />
+                    </div>
+                    <div class="color-palette" id="colorPalette">
+                        <button class="color-swatch" data-color="#4a7a9a" style="background:#4a7a9a"></button>
+                        <button class="color-swatch" data-color="#e94560" style="background:#e94560"></button>
+                        <button class="color-swatch" data-color="#27ae60" style="background:#27ae60"></button>
+                        <button class="color-swatch" data-color="#f39c12" style="background:#f39c12"></button>
+                        <button class="color-swatch" data-color="#8e44ad" style="background:#8e44ad"></button>
+                        <button class="color-swatch" data-color="#2c3e50" style="background:#2c3e50"></button>
+                    </div>
+                </div>
+                <div class="field" id="childrenListField">
+                    <label>👨‍👩‍👧‍👦 Список потомков (ФИО - дата жизни)</label>
+                    <textarea id="editChildrenList" rows="6"
+                        placeholder="Анна Фёдоровна Достоевская - 1865–1935&#10;Фёдор Фёдорович Достоевский - 1871–1922&#10;Любовь Фёдоровна Достоевская - 1869–1926"
+                        style="font-size:12px; font-family: monospace;"></textarea>
+                    <div style="font-size:10px; color:#6688aa; margin-top:4px;">Каждый потомок на новой строке. Формат:
+                        ФИО
+                        - дата жизни</div>
+                </div>
+                <button class="save-btn" onclick="savePerson()">💾 Сохранить изменения</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="linkHint" class="link-hint">
+        <span id="linkHintText">🔗 Выберите первую карточку</span>
+        <span class="cancel-hint">Нажмите «Отмена» или Esc для выхода</span>
+    </div>
+
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <h2>📖 Как пользоваться</h2>
+            <div class="subtitle">Интерактивный конструктор генеалогических схем</div>
+            <div class="step">
+                <div class="num">1</div>
+                <div class="text"><strong>➕ Добавление</strong><br><strong>«Человек»</strong> — обычная карточка
+                    персоны.<br><strong>«Список детей»</strong> — карточка со списком потомков (ФИО - дата жизни).</div>
+            </div>
+            <div class="step">
+                <div class="num">2</div>
+                <div class="text"><strong>✏️ Редактирование</strong><br><strong>Кликните</strong> по карточке — справа
+                    откроется панель. Для карточки-списка заполните поле «Список потомков».</div>
+            </div>
+            <div class="step">
+                <div class="num">3</div>
+                <div class="text"><strong>🔗 Создание связей</strong><br><strong>«Связать»</strong> — линия между двумя
+                    карточками.<br><strong>«Брак»</strong> — кольцо брака между двумя
+                    карточками.<br><strong>«Ребёнок»</strong> — линия от кольца брака к ребёнку.</div>
+            </div>
+            <div class="step">
+                <div class="num">4</div>
+                <div class="text"><strong>📐 Стиль линии</strong><br>Выберите <strong>«Прямая»</strong> или
+                    <strong>«Угловая»</strong> — линии будут рисоваться с прямыми углами.
+                </div>
+            </div>
+            <button class="close-modal" onclick="closeHelp()">✅ Понятно!</button>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //  ДАННЫЕ
+        // ================================================================
+
+        const STORAGE_KEY = 'genealogy_tree_data';
+        let people = [];
+        let relations = [];
+        let branches = [];
+        let selectedId = null;
+        let nextId = 1;
+        let relationCounter = 1;
+        let currentBranch = null;
+        let lineStyle = 'straight';
+        let dataJsonPath = '';
+
+        let linkMode = null;
+        let linkFirst = null;
+        let isLinkModeActive = false;
+        let pendingAddType = null;
+        const PRODUCTION_MODE = true; // true — полный редактор, false — только просмотр
+        let productionMode = PRODUCTION_MODE;
+        let gridEnabled = true;
+        const gridSize = 24;
+
+        // ================================================================
+        //  ЗАГРУЗКА / СОХРАНЕНИЕ
+        // ================================================================
+
+        function loadData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    people = data.people || [];
+                    relations = data.relations || [];
+                    branches = data.branches || [];
+                    nextId = data.nextId || 1;
+                    relationCounter = data.relationCounter || 1;
+                    currentBranch = data.currentBranch || null;
+                    lineStyle = data.lineStyle || 'straight';
+                    // Значение флага из файла имеет приоритет над сохранённым состоянием.
+                    productionMode = PRODUCTION_MODE;
+                    return true;
+                }
+            } catch (e) { console.warn(e); }
+            return false;
+        }
+
+        function getConfiguredDataPath() {
+            const input = document.getElementById('jsonPathInput');
+            const fromInput = input ? input.value.trim() : '';
+            const fromQuery = new URLSearchParams(window.location.search).get('tree');
+            return fromInput || fromQuery || '';
+        }
+
+        async function loadTreeFromPath(path = getConfiguredDataPath()) {
+            if (!path) return false;
+            try {
+                const response = await fetch(path, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                if (!data || !Array.isArray(data.people)) {
+                    throw new Error('JSON не содержит массива people');
+                }
+                people = data.people || [];
+                relations = data.relations || [];
+                branches = data.branches || [];
+                nextId = data.nextId || 1;
+                relationCounter = data.relationCounter || 1;
+                currentBranch = data.currentBranch || null;
+                lineStyle = data.lineStyle || 'straight';
+                productionMode = PRODUCTION_MODE;
+                dataJsonPath = path;
+                const input = document.getElementById('jsonPathInput');
+                if (input) input.value = path;
+                updateStyleButtons();
+                render();
+                autoSave();
+                showSaveStatus(true);
+                return true;
+            } catch (e) {
+                console.warn('Не удалось загрузить JSON по пути:', path, e);
+                showSaveStatus(false);
+                return false;
+            }
+        }
+
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    people, relations, branches, nextId, relationCounter, currentBranch, lineStyle, productionMode
+                }));
+                showSaveStatus(true);
+            } catch (e) { showSaveStatus(false); }
+        }
+
+        function applyModeUI() {
+            const toolbar = document.querySelector('.toolbar');
+            if (toolbar) {
+                toolbar.style.display = productionMode ? '' : 'none';
+            }
+            const panel = document.getElementById('infoPanel');
+            if (panel) {
+                panel.classList.toggle('read-only-mode', !productionMode);
+            }
+            const saveBtn = document.querySelector('.save-btn');
+            if (saveBtn) {
+                saveBtn.style.display = productionMode ? 'block' : 'none';
+            }
+            const editForm = document.getElementById('editPanelForm');
+            const readOnlyInfo = document.getElementById('readOnlyInfo');
+            if (editForm) {
+                editForm.style.display = productionMode ? 'block' : 'none';
+            }
+            if (readOnlyInfo) {
+                readOnlyInfo.style.display = productionMode ? 'none' : 'block';
+            }
+            const controls = document.querySelectorAll('#panelBody input, #panelBody textarea, #panelBody select');
+            controls.forEach((control) => {
+                const isReadOnly = !productionMode;
+                control.disabled = isReadOnly;
+                control.readOnly = isReadOnly;
+            });
+        }
+
+        function clearTree() {
+            if (!productionMode) return;
+            if (!confirm('Удалить все данные дерева? Это действие нельзя отменить.')) return;
+            people = [];
+            relations = [];
+            branches = [];
+            selectedId = null;
+            currentBranch = null;
+            nextId = 1;
+            relationCounter = 1;
+            lineStyle = 'straight';
+            pendingAddType = null;
+            isLinkModeActive = false;
+            linkMode = null;
+            linkFirst = null;
+            document.getElementById('linkHint').style.display = 'none';
+            wrapper.classList.remove('link-mode');
+            document.body.style.cursor = '';
+            updateStyleButtons();
+            render();
+            saveData();
+        }
+
+        function showSaveStatus(success) {
+            const el = document.getElementById('saveStatus');
+            el.textContent = success ? '✓ Сохранено' : '✗ Ошибка';
+            el.style.color = success ? '#27ae60' : '#e74c3c';
+            el.classList.add('show');
+            clearTimeout(el._timeout);
+            el._timeout = setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        function autoSave() { saveData(); }
+
+        // ================================================================
+        //  ЭКСПОРТ / ИМПОРТ
+        // ================================================================
+
+        function exportData() {
+            const data = { people, relations, branches, nextId, relationCounter, currentBranch, lineStyle, exportedAt: new Date().toISOString() };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `genealogy_tree_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.people && data.relations) {
+                        people = data.people || [];
+                        relations = data.relations || [];
+                        branches = data.branches || [];
+                        nextId = data.nextId || 1;
+                        relationCounter = data.relationCounter || 1;
+                        currentBranch = data.currentBranch || null;
+                        lineStyle = data.lineStyle || 'straight';
+                        updateStyleButtons();
+                        render();
+                        autoSave();
+                        alert('✅ Данные импортированы!');
+                    } else {
+                        alert('❌ Неверный формат');
+                    }
+                } catch (err) {
+                    alert('❌ Ошибка: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ================================================================
+        //  СТИЛЬ ЛИНИЙ
+        // ================================================================
+
+        function setLineStyle(style) {
+            lineStyle = style;
+            updateStyleButtons();
+            render();
+            autoSave();
+        }
+
+        function updateStyleButtons() {
+            document.getElementById('styleStraight').classList.toggle('active-style', lineStyle === 'straight');
+            document.getElementById('styleCorner').classList.toggle('active-style', lineStyle === 'corner');
+        }
+
+        function toggleGrid() {
+            gridEnabled = !gridEnabled;
+            const btn = document.getElementById('gridToggleBtn');
+            if (btn) {
+                btn.classList.toggle('active-grid', gridEnabled);
+            }
+            render();
+            autoSave();
+        }
+
+        function snapPosition(person, x, y, freePlacement = false) {
+            if (freePlacement || !gridEnabled) {
+                return { x, y };
+            }
+
+            const threshold = 12;
+            const gridX = Math.round(x / gridSize) * gridSize;
+            const gridY = Math.round(y / gridSize) * gridSize;
+            let snappedX = gridX;
+            let snappedY = gridY;
+
+            const others = people.filter(p => p.id !== person.id);
+            for (const other of others) {
+                const candidatesX = [
+                    other.x,
+                    other.x + other.width,
+                    other.x - person.width,
+                    other.x + other.width - person.width,
+                    other.x + Math.round(other.width / 2) - Math.round(person.width / 2)
+                ];
+                const candidatesY = [
+                    other.y,
+                    other.y + other.height,
+                    other.y - person.height,
+                    other.y + other.height - person.height,
+                    other.y + Math.round(other.height / 2) - Math.round(person.height / 2)
+                ];
+
+                for (const candidateX of candidatesX) {
+                    if (Math.abs(x - candidateX) <= threshold) {
+                        snappedX = candidateX;
+                        break;
+                    }
+                }
+                for (const candidateY of candidatesY) {
+                    if (Math.abs(y - candidateY) <= threshold) {
+                        snappedY = candidateY;
+                        break;
+                    }
+                }
+            }
+
+            return { x: snappedX, y: snappedY };
+        }
+
+        // ================================================================
+        //  РИСОВАНИЕ ЛИНИЙ
+        // ================================================================
+
+        function drawLine(x1, y1, x2, y2, color, width, className, dataRel) {
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+            if (lineStyle === 'corner') {
+                const midY = (y1 + y2) / 2;
+                const d = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+                path.setAttribute('d', d);
+            } else {
+                const d = `M ${x1} ${y1} L ${x2} ${y2}`;
+                path.setAttribute('d', d);
+            }
+
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', width || '1');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            path.setAttribute('class', className || 'relation-line');
+            if (dataRel) path.setAttribute('data-rel', dataRel);
+            group.appendChild(path);
+
+            return group;
+        }
+
+        function drawCornerLine(x1, y1, x2, y2, color, width, className, dataRel) {
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const midY = (y1 + y2) / 2;
+            const d = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+            path.setAttribute('d', d);
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', width || '1');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            path.setAttribute('class', className || 'corner-line');
+            if (dataRel) path.setAttribute('data-rel', dataRel);
+            group.appendChild(path);
+            return group;
+        }
+
+        // ================================================================
+        //  ИНИЦИАЛИЗАЦИЯ
+        // ================================================================
+
+        function initDemoData() {
+            people = [
+                {
+                    id: 'p1',
+                    name: 'Фёдор Достоевский',
+                    fullName: 'Фёдор Михайлович Достоевский',
+                    dates: '1821–1881',
+                    notes: 'Великий русский писатель',
+                    group: 'Писатели',
+                    color: '#4a7a9a',
+                    x: 350,
+                    y: 200,
+                    width: 160,
+                    height: 50,
+                    isChildrenCard: false,
+                    childrenList: ''
+                },
+                {
+                    id: 'p2',
+                    name: 'Анна Достоевская',
+                    fullName: 'Анна Григорьевна Достоевская',
+                    dates: '1846–1918',
+                    notes: 'Стенографистка, жена',
+                    group: 'Писатели',
+                    color: '#8e44ad',
+                    x: 580,
+                    y: 200,
+                    width: 160,
+                    height: 50,
+                    isChildrenCard: false,
+                    childrenList: ''
+                },
+                {
+                    id: 'p3',
+                    name: 'Дети Достоевских',
+                    fullName: '',
+                    dates: '',
+                    notes: '',
+                    group: 'Писатели',
+                    color: '#2c3e50',
+                    x: 420,
+                    y: 420,
+                    width: 220,
+                    height: 140,
+                    isChildrenCard: true,
+                    childrenList: 'Любовь Фёдоровна Достоевская - 1869–1926\nФёдор Фёдорович Достоевский - 1871–1922\nАнна Фёдоровна Достоевская - 1865–1935'
+                },
+                {
+                    id: 'p4',
+                    name: 'Михаил Достоевский',
+                    fullName: 'Михаил Михайлович Достоевский',
+                    dates: '1820–1864',
+                    notes: 'Брат',
+                    group: 'Писатели',
+                    color: '#2c7a5a',
+                    x: 100,
+                    y: 350,
+                    width: 160,
+                    height: 50,
+                    isChildrenCard: false,
+                    childrenList: ''
+                },
+            ];
+            branches = [{ id: 'b1', name: 'Писатели', color: '#4a7a9a' }];
+            currentBranch = 'b1';
+            nextId = 5;
+            relationCounter = 1;
+            relations = [
+                { id: 'rel_1', from: 'p1', to: 'p2', type: 'marriage', color: '#e94560' },
+                { id: 'rel_2', from: 'p1', to: 'p4', type: 'line', color: '#6688aa' },
+                { id: 'rel_3', from: 'rel_1', to: 'p3', type: 'child', color: '#f39c12' },
+            ];
+            autoSave();
+        }
+
+        async function initializeApp() {
+            const configuredPath = getConfiguredDataPath();
+            if (configuredPath) {
+                const loadedFromPath = await loadTreeFromPath(configuredPath);
+                if (loadedFromPath) {
+                    render();
+                    updateTransform();
+                    applyModeUI();
+                    centerCanvasOnPeople();
+                    console.log('✅ Древо загружено из JSON:', configuredPath);
+                    return;
+                }
+            }
+
+            const isNewData = !loadData();
+            if (isNewData) initDemoData();
+            updateStyleButtons();
+            applyModeUI();
+            render();
+            updateTransform();
+            if (people.length === 0) {
+                setTimeout(() => {
+                    autoArrange();
+                    centerCanvasOnPeople();
+                }, 300);
+            } else {
+                centerCanvasOnPeople();
+            }
+            console.log('✅ Древо загружено!');
+        }
+
+        initializeApp();
+
+        // ================================================================
+        //  АВТОМАТИЧЕСКОЕ ВЫРАВНИВАНИЕ
+        // ================================================================
+
+        function autoArrange() {
+            const CARD_W = 160;
+            const CARD_H = 50;
+            const LEVEL_H = 80;
+            const SPACING = 20;
+
+            const marriages = relations.filter(r => r.type === 'marriage');
+
+            marriages.forEach(marriage => {
+                const p1 = people.find(p => p.id === marriage.from);
+                const p2 = people.find(p => p.id === marriage.to);
+                if (!p1 || !p2) return;
+
+                const avgY = (p1.y + p2.y) / 2;
+                p1.y = avgY;
+                p2.y = avgY;
+
+                const minX = Math.min(p1.x, p2.x);
+                const maxX = Math.max(p1.x, p2.x);
+                const centerX = (minX + maxX) / 2;
+                p1.x = centerX - CARD_W - SPACING;
+                p2.x = centerX + SPACING;
+            });
+
+            const childRelations = relations.filter(r => r.type === 'child');
+            const childrenByMarriage = childRelations.reduce((groups, rel) => {
+                if (!groups[rel.from]) groups[rel.from] = [];
+                groups[rel.from].push(rel);
+                return groups;
+            }, {});
+
+            Object.keys(childrenByMarriage).forEach(marriageId => {
+                const marriage = relations.find(r => r.id === marriageId);
+                if (!marriage) return;
+                const parent1 = people.find(p => p.id === marriage.from);
+                const parent2 = people.find(p => p.id === marriage.to);
+                if (!parent1 || !parent2) return;
+
+                const children = childrenByMarriage[marriageId]
+                    .map(rel => people.find(p => p.id === rel.to))
+                    .filter(Boolean);
+                if (children.length === 0) return;
+
+                const maxParentY = Math.max(parent1.y, parent2.y);
+                const centerX = (parent1.x + parent1.width + parent2.x) / 2;
+                const totalWidth = children.reduce((sum, child) => sum + child.width, 0) + SPACING * (children.length - 1);
+                let childX = centerX - totalWidth / 2;
+
+                children.forEach(child => {
+                    child.y = maxParentY + LEVEL_H;
+                    child.x = childX;
+                    childX += child.width + SPACING;
+                });
+            });
+
+            render();
+            autoSave();
+            document.getElementById('saveStatus').textContent = '📐 Выровнено!';
+            document.getElementById('saveStatus').classList.add('show');
+            setTimeout(() => document.getElementById('saveStatus').classList.remove('show'), 2000);
+        }
+
+        // ================================================================
+        //  НАВИГАЦИЯ
+        // ================================================================
+
+        const svg = document.getElementById('genealogySvg');
+        const wrapper = document.getElementById('canvasWrapper');
+
+        let scale = 16.0, panX = 0, panY = 0, isPanning = false;
+        let panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0;
+        let dragState = {
+            isDragging: false,
+            dragStarted: false,
+            person: null,
+            group: null,
+            offsetX: 0,
+            offsetY: 0,
+            startX: 0,
+            startY: 0
+        };
+        let dragFrame = null;
+
+        function updateTransform() {
+            svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            document.getElementById('zoomInfo').textContent = Math.round(scale * 100) + '%';
+        }
+
+        function setScale(newScale, anchorX, anchorY) {
+            newScale = Math.min(Math.max(newScale, 2), 30);
+            if (newScale === scale) return;
+            const beforeX = (anchorX - panX) / scale;
+            const beforeY = (anchorY - panY) / scale;
+            scale = newScale;
+            panX = anchorX - beforeX * scale;
+            panY = anchorY - beforeY * scale;
+            updateTransform();
+        }
+
+        function centerCanvasOnPeople() {
+            if (!people || people.length === 0) return;
+            let minX = Infinity;
+            let minY = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            for (const person of people) {
+                minX = Math.min(minX, person.x);
+                minY = Math.min(minY, person.y);
+                maxX = Math.max(maxX, person.x + (person.width || 0));
+                maxY = Math.max(maxY, person.y + (person.height || 0));
+            }
+            if (minX === Infinity) return;
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const rect = wrapper.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            const point = svg.createSVGPoint();
+            point.x = centerX;
+            point.y = centerY;
+            const ctm = svg.getScreenCTM();
+            if (!ctm) return;
+            const screen = point.matrixTransform(ctm);
+            panX += rect.left + rect.width / 2 - screen.x;
+            panY += rect.top + rect.height / 2 - screen.y;
+            updateTransform();
+        }
+
+        function getCanvasPoint(clientX, clientY) {
+            const point = svg.createSVGPoint();
+            point.x = clientX;
+            point.y = clientY;
+            const ctm = svg.getScreenCTM();
+            if (!ctm) {
+                const rect = wrapper.getBoundingClientRect();
+                return {
+                    x: (clientX - rect.left - panX) / scale,
+                    y: (clientY - rect.top - panY) / scale
+                };
+            }
+            const transformed = point.matrixTransform(ctm.inverse());
+            return {
+                x: transformed.x,
+                y: transformed.y
+            };
+        }
+
+        function startPanFromPoint(clientX, clientY) {
+            if (isLinkModeActive || pendingAddType) return;
+            isPanning = true;
+            panStartX = clientX;
+            panStartY = clientY;
+            panStartPanX = panX;
+            panStartPanY = panY;
+            wrapper.style.cursor = 'grabbing';
+        }
+
+        function updatePanFromPoint(clientX, clientY) {
+            if (!isPanning) return;
+            panX = panStartPanX + (clientX - panStartX);
+            panY = panStartPanY + (clientY - panStartY);
+            updateTransform();
+        }
+
+        function finishPan() {
+            if (isPanning) {
+                isPanning = false;
+                wrapper.style.cursor = isLinkModeActive ? 'crosshair' : 'grab';
+            }
+        }
+
+        wrapper.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = wrapper.getBoundingClientRect();
+            const anchorX = e.clientX - rect.left;
+            const anchorY = e.clientY - rect.top;
+            setScale(scale + (e.deltaY > 0 ? -0.4 : 0.4), anchorX, anchorY);
+        }, { passive: false });
+
+        wrapper.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && !e.target.closest('.card-group') && !isLinkModeActive && !pendingAddType) {
+                startPanFromPoint(e.clientX, e.clientY);
+            }
+        });
+
+        wrapper.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            if (e.target.closest('.card-group')) return;
+            if (isLinkModeActive || pendingAddType) return;
+            e.preventDefault();
+            startPanFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+
+        wrapper.addEventListener('click', (e) => {
+            if (!pendingAddType) return;
+            if (e.target.closest('.card-group')) return;
+            const point = getCanvasPoint(e.clientX, e.clientY);
+            if (pendingAddType === 'person') {
+                addPerson(point.x, point.y);
+            } else if (pendingAddType === 'children') {
+                addChildrenCard(point.x, point.y);
+            } else if (pendingAddType === 'branchLabel') {
+                addBranchLabel(point.x, point.y);
+            }
+            cancelPendingAdd();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isPanning) {
+                updatePanFromPoint(e.clientX, e.clientY);
+            }
+        });
+        window.addEventListener('mouseup', () => {
+            finishPan();
+        });
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length !== 1 || !isPanning) return;
+            e.preventDefault();
+            updatePanFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
+        window.addEventListener('touchend', () => {
+            finishPan();
+        });
+        window.addEventListener('touchcancel', () => {
+            finishPan();
+        });
+        wrapper.addEventListener('contextmenu', (e) => e.preventDefault());
+
+        window.addEventListener('mousemove', (e) => {
+            if (dragState.isDragging && dragState.person) {
+                if (!dragState.dragStarted) {
+                    const dx = e.clientX - dragState.startX;
+                    const dy = e.clientY - dragState.startY;
+                    if (Math.hypot(dx, dy) < 4) return;
+                    dragState.dragStarted = true;
+                }
+                const point = getCanvasPoint(e.clientX, e.clientY);
+                const freePlacement = e.shiftKey;
+                const snapped = snapPosition(
+                    dragState.person,
+                    point.x - dragState.offsetX,
+                    point.y - dragState.offsetY,
+                    freePlacement
+                );
+                dragState.person.x = snapped.x;
+                dragState.person.y = snapped.y;
+                if (!dragFrame) {
+                    dragFrame = requestAnimationFrame(() => {
+                        updateTransform();
+                        render();
+                        dragFrame = null;
+                    });
+                }
+            } else if (isPanning) {
+                panX = panStartPanX + (e.clientX - panStartX);
+                panY = panStartPanY + (e.clientY - panStartY);
+                updateTransform();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (dragState.isDragging) {
+                const wasDragged = dragState.dragStarted;
+                dragState.isDragging = false;
+                dragState.dragStarted = false;
+                if (dragState.group) dragState.group.style.cursor = 'pointer';
+                dragState.person = null;
+                dragState.group = null;
+                if (dragFrame) {
+                    cancelAnimationFrame(dragFrame);
+                    dragFrame = null;
+                }
+                if (wasDragged) {
+                    autoSave();
+                }
+            }
+            finishPan();
+        });
+
+        function zoomIn() { scale = Math.min(scale + 1, 30); updateTransform(); }
+        function zoomOut() { scale = Math.max(scale - 1, 2); updateTransform(); }
+        function resetView() { scale = 20; panX = 0; panY = 0; updateTransform(); closePanel(); clearSelection(); cancelLinkMode(); }
+
+        // ================================================================
+        //  ДОБАВЛЕНИЕ КАРТОЧЕК
+        // ================================================================
+
+        function addPerson(x, y) {
+            if (!productionMode) return;
+            const branch = branches.find(b => b.id === currentBranch);
+            people.push({
+                id: 'p' + (nextId++),
+                name: 'Новая персона',
+                fullName: '',
+                dates: '',
+                notes: '',
+                group: branch ? branch.name : '',
+                branch: currentBranch,
+                color: branch ? branch.color : '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0'),
+                x: x !== undefined ? x : 500 + Math.random() * 80 - 40,
+                y: y !== undefined ? y : 350 + Math.random() * 80 - 40,
+                width: 160,
+                height: 50,
+                isChildrenCard: false,
+                childrenList: ''
+            });
+            render();
+            autoSave();
+        }
+
+        function addChildrenCard(x, y) {
+            if (!productionMode) return;
+            const branch = branches.find(b => b.id === currentBranch);
+            people.push({
+                id: 'p' + (nextId++),
+                name: 'Дети',
+                fullName: '',
+                dates: '',
+                notes: '',
+                group: branch ? branch.name : '',
+                branch: currentBranch,
+                color: '#2c3e50',
+                x: x !== undefined ? x : 500 + Math.random() * 80 - 40,
+                y: y !== undefined ? y : 450 + Math.random() * 80 - 40,
+                width: 240,
+                height: 150,
+                isChildrenCard: true,
+                childrenList: 'Новый потомок - \nЕщё один потомок - '
+            });
+            render();
+            autoSave();
+        }
+
+        function addBranch() {
+            if (!productionMode) return;
+            const name = prompt('Название ветви:');
+            if (!name) return;
+            const color = prompt('Цвет (hex):', '#4a7a9a');
+            branches.push({ id: 'b' + (branches.length + 1), name, color: color || '#4a7a9a' });
+            currentBranch = branches[branches.length - 1].id;
+            autoSave();
+            render();
+        }
+
+        function addBranchLabel(x, y) {
+            if (!productionMode) return;
+            const branch = branches.find(b => b.id === currentBranch);
+            const defaultText = branch ? branch.name : 'Ветка';
+            const name = prompt('Текст подписи ветви:', defaultText);
+            if (!name) return;
+            const color = branch ? branch.color : '#7f8c8d';
+            people.push({
+                id: 'p' + (nextId++),
+                name: name.trim(),
+                fullName: '',
+                dates: '',
+                notes: '',
+                group: branch ? branch.name : '',
+                branch: currentBranch,
+                color: color,
+                x: x !== undefined ? x : 500 + Math.random() * 80 - 40,
+                y: y !== undefined ? y : 450 + Math.random() * 80 - 40,
+                width: 120,
+                height: 36,
+                isBranchLabel: true,
+                isChildrenCard: false,
+                childrenList: ''
+            });
+            render();
+            autoSave();
+        }
+
+        // ================================================================
+        //  РЕЖИМ СОЗДАНИЯ СВЯЗЕЙ
+        // ================================================================
+
+        function startLinkMode(type) {
+            if (!productionMode) return;
+            if (isLinkModeActive) cancelLinkMode();
+            cancelPendingAdd();
+            isLinkModeActive = true;
+            linkMode = type;
+            linkFirst = null;
+
+            const hint = document.getElementById('linkHint');
+            const labels = {
+                line: '🔗 СВЯЗЬ: выберите первую карточку',
+                marriage: '💍 БРАК: выберите первую карточку',
+                child: '👶 РЕБЁНОК: кликните на КОЛЬЦО БРАКА, затем на карточку ребёнка'
+            };
+            document.getElementById('linkHintText').textContent = labels[type];
+            hint.style.display = 'block';
+            wrapper.classList.add('link-mode');
+            document.body.style.cursor = 'crosshair';
+
+            ['linkLineBtn', 'linkMarriageBtn', 'linkChildBtn'].forEach(id => {
+                document.getElementById(id).classList.toggle('link-active',
+                    (id === 'linkLineBtn' && type === 'line') ||
+                    (id === 'linkMarriageBtn' && type === 'marriage') ||
+                    (id === 'linkChildBtn' && type === 'child')
+                );
+            });
+            clearSelection();
+            render();
+        }
+
+        function startCreateCard(type) {
+            if (!productionMode) return;
+            cancelLinkMode();
+            pendingAddType = type;
+            clearSelection();
+            const hint = document.getElementById('linkHint');
+            const labels = {
+                person: '➕ Кликните по полю, чтобы добавить карточку человека',
+                children: '👨‍👩‍👧‍👦 Кликните по полю, чтобы добавить карточку со списком детей',
+                branchLabel: '🏷 Кликните по полю, чтобы добавить подпись ветви'
+            };
+            document.getElementById('linkHintText').textContent = labels[type] || 'Кликните по полю';
+            hint.style.display = 'block';
+            wrapper.classList.add('link-mode');
+            document.body.style.cursor = 'crosshair';
+            render();
+        }
+
+        function cancelPendingAdd() {
+            if (!pendingAddType) return;
+            pendingAddType = null;
+            document.getElementById('linkHint').style.display = 'none';
+            wrapper.classList.remove('link-mode');
+            document.body.style.cursor = '';
+            render();
+        }
+
+        function cancelLinkMode() {
+            isLinkModeActive = false;
+            linkMode = null;
+            linkFirst = null;
+            pendingAddType = null;
+            document.getElementById('linkHint').style.display = 'none';
+            wrapper.classList.remove('link-mode');
+            document.body.style.cursor = '';
+            ['linkLineBtn', 'linkMarriageBtn', 'linkChildBtn'].forEach(id => {
+                document.getElementById(id).classList.remove('link-active');
+            });
+            render();
+        }
+
+        function handleMarriageClick(relId) {
+            if (!productionMode || !isLinkModeActive || linkMode !== 'child') return;
+            if (!linkFirst) {
+                linkFirst = relId;
+                document.getElementById('linkHintText').textContent = '👶 РЕБЁНОК: теперь выберите карточку ребёнка';
+                render();
+            }
+        }
+
+        function handleCardClickForLink(id) {
+            if (!productionMode || !isLinkModeActive) return false;
+
+            if (linkMode === 'child') {
+                if (!linkFirst) return true;
+                relations.push({
+                    id: 'rel_' + (relationCounter++),
+                    from: linkFirst,
+                    to: id,
+                    type: 'child',
+                    color: '#6688aa'
+                });
+                cancelLinkMode();
+                render();
+                autoSave();
+                return true;
+            }
+
+            if (!linkFirst) {
+                linkFirst = id;
+                const person = people.find(p => p.id === id);
+                const label = linkMode === 'line' ? '🔗 СВЯЗЬ' : '💍 БРАК';
+                document.getElementById('linkHintText').textContent =
+                    `${label}: выберите вторую карточку (первая: ${person ? person.name : '?'})`;
+                render();
+                return true;
+            } else {
+                if (linkFirst === id) return true;
+                relations.push({
+                    id: 'rel_' + (relationCounter++),
+                    from: linkFirst,
+                    to: id,
+                    type: linkMode,
+                    color: linkMode === 'marriage' ? '#e94560' : '#6688aa'
+                });
+                cancelLinkMode();
+                render();
+                autoSave();
+                if (linkMode === 'marriage') {
+                    setTimeout(autoArrange, 100);
+                }
+                return true;
+            }
+        }
+
+        // ================================================================
+        //  ДЕЙСТВИЯ
+        // ================================================================
+
+        function deleteSelected() {
+            if (!productionMode || !selectedId) return;
+            const person = people.find(p => p.id === selectedId);
+            if (!confirm(`Удалить "${person?.name || 'персону'}" и все связи?`)) return;
+            relations = relations.filter(r => r.from !== selectedId && r.to !== selectedId);
+            relations = relations.filter(r => {
+                if (r.type === 'child' && r.from === selectedId) return false;
+                return true;
+            });
+            people = people.filter(p => p.id !== selectedId);
+            selectedId = null;
+            closePanel();
+            render();
+            autoSave();
+        }
+
+        function selectPerson(id) {
+            if (!productionMode && isLinkModeActive) {
+                return;
+            }
+            if (isLinkModeActive) {
+                if (linkMode === 'child' && !linkFirst) return;
+                handleCardClickForLink(id);
+                return;
+            }
+            const person = people.find(p => p.id === id);
+            selectedId = id;
+            render();
+            if (person && person.isBranchLabel && !productionMode) {
+                closePanel();
+                return;
+            }
+            showPersonInfo(id);
+        }
+
+        function clearSelection() { selectedId = null; render(); }
+
+        // ================================================================
+        //  ИНФОРМАЦИОННАЯ ПАНЕЛЬ
+        // ================================================================
+
+        let editingId = null;
+
+        function showPersonInfo(id) {
+            const person = people.find(p => p.id === id);
+            if (!person) return;
+            editingId = id;
+
+            document.getElementById('infoPanel').classList.add('open');
+            applyModeUI();
+            document.getElementById('editName').value = person.name || '';
+            document.getElementById('editFullName').value = person.fullName || '';
+            document.getElementById('editDates').value = person.dates || '';
+            document.getElementById('editGroup').value = person.group || '';
+            document.getElementById('editNotes').value = person.notes || '';
+            document.getElementById('editColor').value = person.color || '#4a7a9a';
+            document.getElementById('editColorHex').value = person.color || '#4a7a9a';
+            document.getElementById('editChildrenList').value = person.childrenList || '';
+
+            document.getElementById('roName').textContent = person.name || '—';
+            document.getElementById('roBranch').textContent = person.group || '—';
+            document.getElementById('roDates').textContent = person.dates || '—';
+            const biographyText = person.notes || (person.isChildrenCard ? person.childrenList || 'Список потомков' : '—');
+            document.getElementById('roBiography').textContent = biographyText || '—';
+
+            // Показываем/скрываем поля в зависимости от типа карточки
+            const isChildren = person.isChildrenCard || false;
+            document.getElementById('fullNameField').style.display = isChildren ? 'none' : 'block';
+            document.getElementById('datesField').style.display = isChildren ? 'none' : 'block';
+            document.getElementById('notesField').style.display = isChildren ? 'none' : 'block';
+            document.getElementById('childrenListField').style.display = isChildren ? 'block' : 'none';
+
+            // Меняем заголовок
+            document.querySelector('.info-panel-header h2').textContent = productionMode
+                ? (isChildren ? '📋 Редактирование списка' : '✏️ Редактирование')
+                : 'Данные';
+
+            const rels = relations.filter(r => r.from === id || r.to === id);
+            const container = document.getElementById('editRelations');
+            if (rels.length === 0) {
+                container.innerHTML = '<div class="rel-item"><span class="rel-type">—</span> Нет связей</div>';
+            } else {
+                container.innerHTML = '';
+                rels.forEach(r => {
+                    if (r.type === 'child') {
+                        const marriage = relations.find(m => m.id === r.from);
+                        if (marriage) {
+                            const child = people.find(p => p.id === r.to);
+                            const parent1 = people.find(p => p.id === marriage.from);
+                            const parent2 = people.find(p => p.id === marriage.to);
+                            if (parent1 && parent2 && child) {
+                                const div = document.createElement('div');
+                                div.className = 'rel-item';
+                                div.innerHTML = `
+                                    <span class="rel-type">👶 Ребёнок</span>
+                                    ${child.name}
+                                    <span class="rel-parent-badge">от ${parent1.name} & ${parent2.name}</span>
+                                    <button class="rel-delete" onclick="deleteRelation('${r.id}')">✕</button>
+                                `;
+                                container.appendChild(div);
+                                return;
+                            }
+                        }
+                        return;
+                    }
+                    let otherId = r.from === id ? r.to : r.from;
+                    const other = people.find(p => p.id === otherId);
+                    if (!other) return;
+                    const div = document.createElement('div');
+                    div.className = 'rel-item';
+                    let type = r.type === 'marriage' ? '💍 Брак' : '🔗 Связь';
+                    let styleBadge = '';
+                    if (r.type === 'line') {
+                        styleBadge = `<span class="rel-style">${lineStyle === 'corner' ? '┐ угловая' : '╱ прямая'}</span>`;
+                    }
+                    div.innerHTML = `
+                        <span class="rel-type">${type}</span>
+                        ${other.name}
+                        ${styleBadge}
+                        <button class="rel-delete" onclick="deleteRelation('${r.id}')">✕</button>
+                    `;
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        function updateCardSize(person) {
+            if (person.isChildrenCard) return;
+            if (person.isBranchLabel) {
+                const text = (person.name || 'Ветка').trim();
+                const width = Math.max(150, Math.min(420, text.length * 11 + 28));
+                person.width = width;
+                person.height = 44;
+                return;
+            }
+            const fullName = (person.fullName || person.name || '').trim();
+            const parts = fullName.split(/\s+/).filter(Boolean);
+            let lines = [];
+            if (parts.length === 0) {
+                lines = [person.name || 'Без имени'];
+            } else if (parts.length === 1) {
+                lines = [parts[0]];
+            } else if (parts.length === 2) {
+                lines = [parts[0], parts[1]];
+            } else {
+                lines = [parts[0], parts[1], parts.slice(2).join(' ')];
+            }
+            const textWidths = lines.map(line => line.length * 9 + 28);
+            const datesWidth = person.dates ? person.dates.length * 8 + 28 : 0;
+            const width = Math.max(
+                220,
+                Math.min(
+                    520,
+                    Math.max(...textWidths, datesWidth)
+                )
+            );
+            const hasDates = Boolean(person.dates);
+            const height = Math.max(90, 24 + lines.length * 24 + (hasDates ? 24 : 0));
+            person.width = width;
+            person.height = height;
+        }
+
+        function savePerson() {
+            if (!productionMode || !editingId) return;
+            const person = people.find(p => p.id === editingId);
+            if (!person) return;
+
+            person.name = document.getElementById('editName').value || 'Без имени';
+
+            if (!person.isChildrenCard) {
+                person.fullName = document.getElementById('editFullName').value;
+                person.dates = document.getElementById('editDates').value;
+                person.notes = document.getElementById('editNotes').value;
+                updateCardSize(person);
+            } else {
+                person.childrenList = document.getElementById('editChildrenList').value;
+                // Автоматически обновляем размер карточки под количество детей
+                const lines = person.childrenList.split('\n').filter(l => l.trim());
+                person.height = Math.max(100, 50 + lines.length * 22);
+            }
+
+            person.group = document.getElementById('editGroup').value;
+            person.color = document.getElementById('editColor').value;
+
+            if (person.group && !branches.find(b => b.name === person.group)) {
+                branches.push({ id: 'b' + (branches.length + 1), name: person.group, color: person.color });
+            }
+
+            render();
+            autoSave();
+            showSaveStatus(true);
+        }
+
+        function deleteRelation(relId) {
+            if (!productionMode) return;
+            const rel = relations.find(r => r.id === relId);
+            if (rel && rel.type === 'marriage') {
+                const childRels = relations.filter(r => r.from === relId);
+                if (childRels.length > 0) {
+                    if (!confirm(`Удалить брак и всех детей (${childRels.length})?`)) return;
+                    relations = relations.filter(r => r.from !== relId);
+                }
+            }
+            if (!confirm('Удалить эту связь?')) return;
+            relations = relations.filter(r => r.id !== relId);
+            render();
+            autoSave();
+            if (editingId) showPersonInfo(editingId);
+        }
+
+        function closePanel() { document.getElementById('infoPanel').classList.remove('open'); editingId = null; }
+
+        document.getElementById('editColor').addEventListener('input', function () {
+            document.getElementById('editColorHex').value = this.value;
+        });
+
+        document.getElementById('editColorHex').addEventListener('input', function () {
+            const value = this.value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(value)) {
+                document.getElementById('editColor').value = value;
+            }
+        });
+
+        document.querySelectorAll('.color-swatch').forEach((button) => {
+            button.addEventListener('click', () => {
+                const color = button.dataset.color;
+                document.getElementById('editColor').value = color;
+                document.getElementById('editColorHex').value = color;
+                document.getElementById('editColorHex').dispatchEvent(new Event('input'));
+            });
+        });
+
+        // ================================================================
+        //  ОТРИСОВКА
+        // ================================================================
+
+        function render() {
+            while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+            const linesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            linesGroup.setAttribute('id', 'linesGroup');
+
+            const marriageRings = [];
+
+            relations.forEach(rel => {
+                if (rel.type === 'marriage') {
+                    const from = people.find(p => p.id === rel.from);
+                    const to = people.find(p => p.id === rel.to);
+                    if (from && to) {
+                        const cx = (from.x + from.width + to.x) / 2;
+                        const cy = (from.y + from.height / 2 + to.y + to.height / 2) / 2;
+                        marriageRings.push({ id: rel.id, x: cx, y: cy });
+                    }
+                }
+            });
+
+            relations.forEach(rel => {
+                if (rel.type === 'child') {
+                    const ring = marriageRings.find(r => r.id === rel.from);
+                    const child = people.find(p => p.id === rel.to);
+                    if (ring && child) {
+                        const startX = ring.x;
+                        const startY = ring.y;
+                        const endX = child.x + child.width / 2;
+                        const endY = child.y;
+                        const lineGroup = drawLine(
+                            startX, startY,
+                            endX, endY,
+                            '#000000', '2.5', 'relation-line', rel.id
+                        );
+                        const childLine = lineGroup.querySelector('line, path');
+                        if (childLine) {
+                            childLine.style.cursor = 'pointer';
+                            childLine.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                if (!productionMode) return;
+                                if (e.shiftKey) {
+                                    relations = relations.filter(r => r.id !== rel.id);
+                                    render();
+                                    autoSave();
+                                }
+                            });
+                        }
+                        linesGroup.appendChild(lineGroup);
+                    }
+                    return;
+                }
+
+                if (rel.type === 'marriage') {
+                    const from = people.find(p => p.id === rel.from);
+                    const to = people.find(p => p.id === rel.to);
+                    if (!from || !to) return;
+
+                    const x1 = from.x + from.width;
+                    const x2 = to.x;
+                    const lineY = (from.y + from.height / 2 + to.y + to.height / 2) / 2;
+                    const cx = (x1 + x2) / 2;
+                    const cy = lineY;
+
+                    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                    const d = `M ${x1} ${lineY} L ${x2} ${lineY}`;
+                    path.setAttribute('d', d);
+                    path.setAttribute('stroke', rel.color || '#e94560');
+                    path.setAttribute('stroke-width', '2');
+                    path.setAttribute('fill', 'none');
+                    path.setAttribute('opacity', '0.7');
+                    path.setAttribute('stroke-linecap', 'round');
+                    path.setAttribute('stroke-linejoin', 'round');
+                    path.classList.add('relation-line');
+                    linesGroup.appendChild(path);
+
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', cx);
+                    circle.setAttribute('cy', cy);
+                    circle.setAttribute('r', '18');
+                    circle.setAttribute('fill', 'transparent');
+                    circle.setAttribute('stroke', 'none');
+                    circle.setAttribute('pointer-events', 'all');
+                    circle.setAttribute('data-rel', rel.id);
+
+                    circle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!productionMode) return;
+                        if (e.shiftKey) {
+                            const childRels = relations.filter(r => r.from === rel.id);
+                            if (childRels.length > 0) {
+                                if (!confirm(`Удалить брак и всех детей (${childRels.length})?`)) return;
+                                relations = relations.filter(r => r.from !== rel.id);
+                            }
+                            relations = relations.filter(r => r.id !== rel.id);
+                            render();
+                            autoSave();
+                            return;
+                        }
+                        if (isLinkModeActive && linkMode === 'child') {
+                            handleMarriageClick(rel.id);
+                        }
+                    });
+                    linesGroup.appendChild(circle);
+                    return;
+                }
+
+                const from = people.find(p => p.id === rel.from);
+                const to = people.find(p => p.id === rel.to);
+                if (!from || !to) return;
+
+                const x1 = from.x + from.width / 2;
+                const y1 = from.y + from.height;
+                const x2 = to.x + to.width / 2;
+                const y2 = to.y;
+
+                const lineGroup = drawLine(x1, y1, x2, y2, '#000000', '2', 'relation-line', rel.id);
+                const line = lineGroup.querySelector('line, path');
+                if (line) {
+                    line.style.cursor = 'pointer';
+                    line.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        if (!productionMode) return;
+                        if (e.shiftKey) {
+                            relations = relations.filter(r => r.id !== rel.id);
+                            render();
+                            autoSave();
+                        }
+                    });
+                }
+                linesGroup.appendChild(lineGroup);
+            });
+
+            svg.appendChild(linesGroup);
+
+            // Карточки
+            people.forEach(person => {
+                updateCardSize(person);
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('data-id', person.id);
+                g.classList.add('card-group');
+                if (person.isChildrenCard) {
+                    g.classList.add('children-card');
+                }
+                if (person.isBranchLabel) {
+                    g.classList.add('branch-label');
+                }
+                if (selectedId === person.id) g.classList.add('selected');
+                if (isLinkModeActive && linkFirst === person.id && linkMode !== 'child') {
+                    g.classList.add('link-first');
+                }
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', person.x);
+                rect.setAttribute('y', person.y);
+                rect.setAttribute('width', person.width);
+                rect.setAttribute('height', person.height);
+                rect.setAttribute('fill', '#ffffff');
+                rect.setAttribute('stroke', person.color || '#ece1cd');
+                rect.setAttribute('stroke-width', '2.5');
+                rect.setAttribute('rx', '8');
+                rect.setAttribute('ry', '8');
+                rect.classList.add('card-rect');
+                if (person.isChildrenCard) {
+                    rect.setAttribute('stroke-dasharray', '4,4');
+                }
+                g.appendChild(rect);
+
+                if (person.isBranchLabel) {
+                    const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    label.setAttribute('x', person.x + person.width / 2);
+                    label.setAttribute('y', person.y + person.height / 2 + 4);
+                    label.setAttribute('font-size', '11');
+                    label.setAttribute('font-weight', '700');
+                    label.setAttribute('fill', '#1f1f1f');
+                    label.setAttribute('text-anchor', 'middle');
+                    label.textContent = person.name;
+                    g.appendChild(label);
+                } else if (person.isChildrenCard) {
+                    // Карточка-список потомков
+                    const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    title.setAttribute('x', person.x + person.width / 2);
+                    title.setAttribute('y', person.y + 16);
+                    title.setAttribute('font-size', '9');
+                    title.setAttribute('font-weight', '700');
+                    title.setAttribute('fill', 'rgba(0, 0, 0, 0.55)');
+                    title.setAttribute('text-anchor', 'middle');
+                    title.setAttribute('class', 'card-title');
+                    title.textContent = person.name.toUpperCase();
+                    g.appendChild(title);
+
+                    // Список потомков — любая строка текста
+                    const lines = (person.childrenList || '').split('\n');
+                    lines.forEach((line, index) => {
+                        const yPos = person.y + 32 + index * 20;
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', person.x + 12);
+                        text.setAttribute('y', yPos);
+                        text.setAttribute('font-size', '8.5');
+                        text.setAttribute('fill', 'rgba(0, 0, 0, 0.75)');
+                        text.setAttribute('class', 'child-item');
+                        text.textContent = line;
+                        g.appendChild(text);
+                    });
+                } else {
+                    // Обычная карточка персоны
+                    if (person.group) {
+                        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        label.setAttribute('x', person.x + person.width - 8);
+                        label.setAttribute('y', person.y + 10);
+                        label.setAttribute('font-size', '6');
+                        label.setAttribute('fill', 'rgba(255,255,255,0.5)');
+                        label.setAttribute('text-anchor', 'end');
+                        label.textContent = '🌿' + person.group.slice(0, 6);
+                        g.appendChild(label);
+                    }
+
+                    const fullName = (person.fullName || person.name || '').trim();
+                    const parts = fullName.split(/\s+/).filter(Boolean);
+                    const firstLine = parts[0] || '';
+                    const secondLine = parts[1] || '';
+                    const thirdLine = parts.slice(2).join(' ');
+                    const lineCount = [firstLine, secondLine, thirdLine].filter(Boolean).length;
+
+                    const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    nameText.setAttribute('x', person.x + 26);
+                    nameText.setAttribute('y', person.y + 32);
+                    nameText.setAttribute('font-size', '16');
+                    nameText.setAttribute('font-weight', '700');
+                    nameText.setAttribute('fill', '#1f2937');
+                    nameText.setAttribute('class', 'card-label');
+
+                    if (firstLine) {
+                        const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                        line1.setAttribute('x', person.x + 26);
+                        line1.setAttribute('dy', '0');
+                        line1.textContent = firstLine;
+                        nameText.appendChild(line1);
+                    }
+                    if (secondLine) {
+                        const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                        line2.setAttribute('x', person.x + 26);
+                        line2.setAttribute('dy', '22');
+                        line2.textContent = secondLine;
+                        nameText.appendChild(line2);
+                    }
+                    if (thirdLine) {
+                        const line3 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+                        line3.setAttribute('x', person.x + 26);
+                        line3.setAttribute('dy', '22');
+                        line3.textContent = thirdLine;
+                        nameText.appendChild(line3);
+                    }
+
+                    g.appendChild(nameText);
+
+                    if (person.dates) {
+                        const datesText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        datesText.setAttribute('x', person.x + 26);
+                        datesText.setAttribute('y', person.y + 32 + lineCount * 22);
+                        datesText.setAttribute('font-size', '12');
+                        datesText.setAttribute('fill', 'rgba(0, 0, 0, 0.6)');
+                        datesText.setAttribute('class', 'card-sub date-line');
+                        datesText.textContent = person.dates;
+                        g.appendChild(datesText);
+                    }
+                }
+
+                g.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const id = person.id;
+                    if (isLinkModeActive) {
+                        if (linkMode === 'child' && !linkFirst) return;
+                        handleCardClickForLink(id);
+                        return;
+                    }
+                    selectPerson(id);
+                });
+
+                g.addEventListener('mousedown', (e) => {
+                    if (e.button === 0 && !e.ctrlKey && !e.altKey && !isLinkModeActive && productionMode) {
+                        dragState.isDragging = true;
+                        dragState.dragStarted = false;
+                        dragState.person = person;
+                        dragState.group = g;
+                        dragState.startX = e.clientX;
+                        dragState.startY = e.clientY;
+                        const point = getCanvasPoint(e.clientX, e.clientY);
+                        dragState.offsetX = point.x - person.x;
+                        dragState.offsetY = point.y - person.y;
+                        g.style.cursor = 'grabbing';
+                        e.stopPropagation();
+                    }
+                });
+
+                svg.appendChild(g);
+            });
+        }
+
+        // ================================================================
+        //  КЛАВИАТУРА
+        // ================================================================
+
+        document.addEventListener('keydown', (e) => {
+            if (!productionMode) {
+                if (e.key === 'Escape') {
+                    closePanel();
+                    clearSelection();
+                }
+                return;
+            }
+            if (e.ctrlKey && e.key === 'l') {
+                e.preventDefault();
+                startLinkMode('line');
+            }
+            if (e.ctrlKey && e.key === 'm') {
+                e.preventDefault();
+                startLinkMode('marriage');
+            }
+            if (e.ctrlKey && e.key === 'c') {
+                e.preventDefault();
+                startLinkMode('child');
+            }
+            if (e.ctrlKey && e.key === 'a') {
+                e.preventDefault();
+                autoArrange();
+            }
+            if (e.ctrlKey && e.key === '1') {
+                e.preventDefault();
+                setLineStyle('straight');
+            }
+            if (e.ctrlKey && e.key === '2') {
+                e.preventDefault();
+                setLineStyle('corner');
+            }
+            if (e.key === 'Escape') {
+                if (isLinkModeActive) cancelLinkMode();
+                else {
+                    closePanel();
+                    clearSelection();
+                }
+            }
+            if ((e.key === 'Delete' || e.key === 'Backspace') && !e.target.closest('input, textarea')) {
+                if (!isLinkModeActive) deleteSelected();
+            }
+            if (e.key === 'Enter' && editingId) savePerson();
+        });
+
+        // ================================================================
+        //  ПОМОЩЬ
+        // ================================================================
+
+        function showHelp() { document.getElementById('helpModal').classList.add('show'); }
+        function closeHelp() { document.getElementById('helpModal').classList.remove('show'); }
+        document.getElementById('helpModal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('helpModal')) closeHelp();
+        });
+
+        // ================================================================
+        //  СТАРТ
+        // ================================================================
+
+        render();
+        updateTransform();
+        applyModeUI();
+        if (people.length === 0) {
+            setTimeout(() => {
+                autoArrange();
+                centerCanvasOnPeople();
+            }, 300);
+        } else {
+            centerCanvasOnPeople();
+        }
+
+        console.log('✅ Древо загружено!');
+        console.log('👨‍👩‍👦 Добавлена карточка "Список детей"');
+        console.log('📝 Формат: ФИО - дата жизни (каждый на новой строке)');
+    </script>
+
+</body>
+
+</html>
